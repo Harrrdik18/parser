@@ -3,7 +3,6 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Create axios instance with default config
 const api = axios.create({
     baseURL: API_URL,
     headers: {
@@ -20,33 +19,27 @@ export const ReportProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // Fetch all reports on initial load
+    const fetchReports = useCallback(async (signal) => {
+        setLoading(true);
+        try {
+            const response = await api.get('/reports', { signal });
+            setReports(response.data || []);
+            setError(null);
+        } catch (err) {
+            if (!axios.isCancel(err)) {
+                console.error('Error fetching reports:', err);
+                setError(err.response?.data?.error || err.message || 'Failed to fetch reports');
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         const abortController = new AbortController();
-        
-        const fetchReports = async () => {
-            setLoading(true);
-            try {
-                const response = await api.get('/reports', {
-                    signal: abortController.signal
-                });
-                setReports(response.data || []);
-            } catch (err) {
-                if (!axios.isCancel(err)) {
-                    console.error('Error fetching reports:', err);
-                    setError(err.response?.data?.error || err.message || 'Failed to fetch reports');
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchReports();
-
-        return () => {
-            abortController.abort();
-        };
-    }, []);
+        fetchReports(abortController.signal);
+        return () => abortController.abort();
+    }, [fetchReports]);
 
     const uploadReport = async (file) => {
         const abortController = new AbortController();
@@ -63,8 +56,8 @@ export const ReportProvider = ({ children }) => {
                 },
                 signal: abortController.signal
             });
-            
-            setReports(prevReports => [...prevReports, response.data]);
+            await fetchReports();
+            setError(null);
             return response.data;
         } catch (err) {
             if (!axios.isCancel(err)) {
@@ -87,6 +80,7 @@ export const ReportProvider = ({ children }) => {
                 signal: abortController.signal
             });
             setCurrentReport(response.data);
+            setError(null);
             return response.data;
         } catch (err) {
             if (!axios.isCancel(err)) {
@@ -115,7 +109,8 @@ export const ReportProvider = ({ children }) => {
             error,
             uploadReport,
             getReport,
-            clearCurrentReport
+            clearCurrentReport,
+            fetchReports
         }}>
             {children}
         </ReportContext.Provider>

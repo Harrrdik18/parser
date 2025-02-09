@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Button, Box, Alert } from '@mui/material';
+import { Button, Box, Alert, Snackbar } from '@mui/material';
 import { useReport } from '../context/ReportContext';
 
 const FileUpload = () => {
     const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
     const { uploadReport, loading } = useReport();
 
     const handleFileUpload = async (event) => {
@@ -19,10 +20,15 @@ const FileUpload = () => {
         try {
             await uploadReport(file);
             setError(null);
-            event.target.value = null; // Clear the file input
+            setSuccess(true);
+            event.target.value = null;
         } catch (err) {
             setError(err.message || 'Failed to upload file');
         }
+    };
+
+    const handleCloseSuccess = () => {
+        setSuccess(false);
     };
 
     return (
@@ -49,6 +55,16 @@ const FileUpload = () => {
                     {error}
                 </Alert>
             )}
+            <Snackbar
+                open={success}
+                autoHideDuration={3000}
+                onClose={handleCloseSuccess}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert onClose={handleCloseSuccess} severity="success">
+                    Report uploaded successfully!
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

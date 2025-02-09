@@ -4,7 +4,6 @@ const errorHandler = (err, req, res, next) => {
         stack: err.stack
     });
 
-    // Handle Mongoose validation errors
     if (err.name === 'ValidationError') {
         return res.status(400).json({
             error: 'Validation Error',
@@ -12,7 +11,6 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Handle XML parsing errors
     if (err.message && err.message.includes('Failed to parse')) {
         return res.status(400).json({
             error: 'XML Parsing Error',
@@ -20,7 +18,6 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Handle file upload errors
     if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
             error: 'File too large',
@@ -28,7 +25,6 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Handle mongoose cast errors (e.g., invalid ObjectId)
     if (err.name === 'CastError') {
         return res.status(400).json({
             error: 'Invalid ID',
@@ -36,7 +32,6 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Handle mongoose duplicate key errors
     if (err.code === 11000) {
         return res.status(400).json({
             error: 'Duplicate Error',
@@ -44,7 +39,6 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Default error
     res.status(500).json({
         error: 'Internal Server Error',
         details: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'

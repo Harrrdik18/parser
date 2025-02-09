@@ -4,7 +4,6 @@ const { processXMLReport, getReport, getAllReports } = require('../controllers/r
 
 const router = express.Router();
 
-// Configure multer for memory storage
 const storage = multer.memoryStorage();
 const upload = multer({
     storage: storage,
@@ -16,11 +15,10 @@ const upload = multer({
         }
     },
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
+        fileSize: 5 * 1024 * 1024
     }
 });
 
-// Routes
 router.post('/upload', upload.single('xmlFile'), processXMLReport);
 router.get('/:id', getReport);
 router.get('/', getAllReports);
