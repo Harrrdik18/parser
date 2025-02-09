@@ -1,65 +1,53 @@
 import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { Button, Box, Typography, CircularProgress } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { uploadReport } from '../store/reportSlice';
+import { Button, Box, Alert } from '@mui/material';
+import { useReport } from '../context/ReportContext';
 
 const FileUpload = () => {
-    const dispatch = useDispatch();
-    const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState(null);
+    const { uploadReport, loading } = useReport();
 
     const handleFileUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Check if file is XML (either by mime type or extension)
-        const isXml = file.type === 'application/xml' || 
-                     file.type === 'text/xml' ||
-                     file.name.toLowerCase().endsWith('.xml');
-
+        const isXml = file.type === 'application/xml' || file.name.toLowerCase().endsWith('.xml');
         if (!isXml) {
-            alert('Please select a valid XML file');
+            setError('Please select a valid XML file');
             return;
         }
 
-        setUploading(true);
         try {
-            const result = await dispatch(uploadReport(file)).unwrap();
-            alert('Report uploaded successfully!');
-            console.log('Upload result:', result);
-        } catch (error) {
-            console.error('Upload error:', error);
-            alert('Error uploading report: ' + (error.message || 'Unknown error'));
-        } finally {
-            setUploading(false);
-            // Clear the input
-            event.target.value = '';
+            await uploadReport(file);
+            setError(null);
+            event.target.value = null; // Clear the file input
+        } catch (err) {
+            setError(err.message || 'Failed to upload file');
         }
     };
 
     return (
-        <Box sx={{ textAlign: 'center', p: 3 }}>
+        <Box sx={{ mt: 2 }}>
             <input
-                accept=".xml,application/xml,text/xml"
+                accept=".xml,application/xml"
                 style={{ display: 'none' }}
                 id="raised-button-file"
                 type="file"
                 onChange={handleFileUpload}
+                disabled={loading}
             />
             <label htmlFor="raised-button-file">
                 <Button
                     variant="contained"
                     component="span"
-                    startIcon={uploading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-                    disabled={uploading}
+                    disabled={loading}
                 >
-                    Upload XML Report
+                    {loading ? 'Uploading...' : 'Upload XML Report'}
                 </Button>
             </label>
-            {uploading && (
-                <Typography variant="body2" sx={{ mt: 2 }}>
-                    Uploading and processing report...
-                </Typography>
+            {error && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                    {error}
+                </Alert>
             )}
         </Box>
     );

@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { 
     Typography, 
@@ -11,63 +10,56 @@ import {
     CircularProgress
 } from '@mui/material';
 import FileUpload from '../components/FileUpload';
-import { fetchAllReports } from '../store/reportSlice';
+import { useReport } from '../context/ReportContext';
 
 const HomePage = () => {
-    const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { reports, loading } = useSelector(state => state.reports);
-
-    useEffect(() => {
-        dispatch(fetchAllReports());
-    }, [dispatch]);
+    const { reports, loading } = useReport();
 
     const handleReportClick = (id) => {
         navigate(`/report/${id}`);
     };
 
     return (
-        <Box>
+        <Box sx={{ mt: 4 }}>
             <Typography variant="h4" gutterBottom>
-                Credit Report Processor
+                Credit Report Analyzer
             </Typography>
-            
             <FileUpload />
-
-            <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
-                Recent Reports
-            </Typography>
-
+            
             {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                     <CircularProgress />
                 </Box>
             ) : (
-                <Paper elevation={2}>
-                    <List>
-                        {reports.map((report, index) => (
-                            <ListItem
-                                key={report._id}
-                                button
-                                onClick={() => handleReportClick(report._id)}
-                                divider={index < reports.length - 1}
-                            >
-                                <ListItemText
-                                    primary={report.basicDetails.name}
-                                    secondary={`Credit Score: ${report.basicDetails.creditScore} | Uploaded: ${new Date(report.uploadedAt).toLocaleDateString()}`}
-                                />
-                            </ListItem>
-                        ))}
-                        {reports.length === 0 && (
-                            <ListItem>
-                                <ListItemText
-                                    primary="No reports found"
-                                    secondary="Upload an XML report to get started"
-                                />
-                            </ListItem>
-                        )}
-                    </List>
-                </Paper>
+                <Box sx={{ mt: 4 }}>
+                    <Typography variant="h5" gutterBottom>
+                        Recent Reports
+                    </Typography>
+                    {reports && reports.length > 0 ? (
+                        <Paper elevation={2}>
+                            <List>
+                                {reports.map((report, index) => (
+                                    <ListItem
+                                        key={report._id}
+                                        button
+                                        onClick={() => handleReportClick(report._id)}
+                                        divider={index < reports.length - 1}
+                                    >
+                                        <ListItemText
+                                            primary={report.basicDetails?.name || 'Unnamed Report'}
+                                            secondary={`Credit Score: ${report.basicDetails?.creditScore || 'N/A'} | Uploaded: ${new Date(report.uploadedAt).toLocaleDateString()}`}
+                                        />
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </Paper>
+                    ) : (
+                        <Typography color="text.secondary">
+                            No reports available. Upload a credit report to get started.
+                        </Typography>
+                    )}
+                </Box>
             )}
         </Box>
     );

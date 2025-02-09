@@ -1,32 +1,44 @@
 const mongoose = require('mongoose');
 
-const creditCardSchema = new mongoose.Schema({
-    bank: String,
+const paymentHistorySchema = new mongoose.Schema({
+    year: String,
+    month: String,
+    daysOverdue: Number
+});
+
+const creditAccountSchema = new mongoose.Schema({
     accountNumber: String,
+    bank: String,
+    accountType: String,
+    openDate: String,
+    status: String,
+    creditLimit: Number,
+    currentBalance: Number,
     amountOverdue: Number,
-    currentBalance: Number
+    paymentHistory: String,
+    paymentHistoryDetails: [paymentHistorySchema]
 });
 
 const reportSchema = new mongoose.Schema({
     basicDetails: {
         name: String,
-        mobilePhone: String,
         pan: String,
-        creditScore: Number
+        dob: String,
+        phone: String,
+        creditScore: String
     },
-    reportSummary: {
+    accountSummary: {
         totalAccounts: Number,
         activeAccounts: Number,
         closedAccounts: Number,
-        currentBalanceAmount: Number,
-        securedAccountsAmount: Number,
-        unsecuredAccountsAmount: Number,
-        lastSevenDaysCreditEnquiries: Number
+        defaultAccounts: Number,
+        totalBalance: {
+            secured: Number,
+            unsecured: Number,
+            total: Number
+        }
     },
-    creditAccounts: {
-        creditCards: [creditCardSchema],
-        addresses: [String]
-    },
+    creditAccounts: [creditAccountSchema],
     uploadedAt: {
         type: Date,
         default: Date.now

@@ -1,15 +1,15 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Provider } from 'react-redux';
+import React from 'react';
 import { ThemeProvider, CssBaseline, Container } from '@mui/material';
-import { store } from './store/store';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ReportProvider } from './context/ReportContext';
 import theme from './theme';
+import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import ReportPage from './pages/ReportPage';
-import Navbar from './components/Navbar';
 
 function App() {
   return (
-    <Provider store={store}>
+    <ReportProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Router>
@@ -22,7 +22,7 @@ function App() {
           </Container>
         </Router>
       </ThemeProvider>
-    </Provider>
+    </ReportProvider>
   );
 }
 

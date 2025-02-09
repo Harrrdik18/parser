@@ -1,137 +1,85 @@
-const extractValue = (obj, path, defaultValue = '') => {
-    try {
-        const result = path.split('.').reduce((current, key) => 
-            current && current[key] !== undefined ? current[key] : defaultValue, obj);
-        return result;
-    } catch (error) {
-        console.error(`Error extracting value for path ${path}:`, error);
-        return defaultValue;
-    }
-};
+const xml2js = require('xml2js');
 
-const parseNumber = (value, defaultValue = 0) => {
-    if (!value || value === '?') return defaultValue;
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? defaultValue : parsed;
-};
-
-const extractBasicDetails = (report) => {
-    const currentApplicant = report.Current_Application?.Current_Application_Details?.Current_Applicant_Details || {};
-    const score = report.SCORE || {};
-
-    // Note: In the XML, Last_Name contains the first name and First_Name contains the last name
-    const details = {
-        name: `${extractValue(currentApplicant, 'Last_Name')} ${extractValue(currentApplicant, 'First_Name')}`.trim(),
-        mobilePhone: extractValue(currentApplicant, 'MobilePhoneNumber'),
-        pan: extractValue(currentApplicant, 'IncomeTaxPan'),
-        creditScore: parseInt(extractValue(score, 'BureauScore', 0))
+const extractBasicDetails = (result) => {
+    const response = result.INProfileResponse;
+    const basicDetails = {
+        name: `${response.Current_Application?.[0]?.Current_Application_Details?.[0]?.Current_Applicant_Details?.[0]?.First_Name?.[0] || ''} ${response.Current_Application?.[0]?.Current_Application_Details?.[0]?.Current_Applicant_Details?.[0]?.Last_Name?.[0] || ''}`.trim(),
+        pan: response.CAIS_Account?.[0]?.CAIS_Account_DETAILS?.[0]?.CAIS_Holder_Details?.[0]?.Income_TAX_PAN?.[0] || 'N/A',
+        dob: formatDate(response.CAIS_Account?.[0]?.CAIS_Account_DETAILS?.[0]?.CAIS_Holder_Details?.[0]?.Date_of_birth?.[0]),
+        phone: response.Current_Application?.[0]?.Current_Application_Details?.[0]?.Current_Applicant_Details?.[0]?.MobilePhoneNumber?.[0] || 'N/A',
+        creditScore: response.SCORE?.[0]?.BureauScore?.[0] || 'N/A'
     };
-    
-    return details;
+    return basicDetails;
 };
 
-const extractReportSummary = (report) => {
-    const summary = report.CAIS_Account?.CAIS_Summary || {};
-    const creditAccount = summary.Credit_Account || {};
-    const totalBalance = summary.Total_Outstanding_Balance || {};
-
+const extractAccountSummary = (result) => {
+    const caisSummary = result.INProfileResponse?.CAIS_Account?.[0]?.CAIS_Summary?.[0];
     return {
-        totalAccounts: parseInt(extractValue(creditAccount, 'CreditAccountTotal', 0)),
-        activeAccounts: parseInt(extractValue(creditAccount, 'CreditAccountActive', 0)),
-        closedAccounts: parseInt(extractValue(creditAccount, 'CreditAccountClosed', 0)),
-        currentBalanceAmount: parseNumber(extractValue(totalBalance, 'Outstanding_Balance_All', 0)),
-        securedAccountsAmount: parseNumber(extractValue(totalBalance, 'Outstanding_Balance_Secured', 0)),
-        unsecuredAccountsAmount: parseNumber(extractValue(totalBalance, 'Outstanding_Balance_UnSecured', 0)),
-        lastSevenDaysCreditEnquiries: parseInt(extractValue(report, 'TotalCAPS_Summary.TotalCAPSLast7Days', 0))
+        totalAccounts: parseInt(caisSummary?.Credit_Account?.[0]?.CreditAccountTotal?.[0] || '0'),
+        activeAccounts: parseInt(caisSummary?.Credit_Account?.[0]?.CreditAccountActive?.[0] || '0'),
+        closedAccounts: parseInt(caisSummary?.Credit_Account?.[0]?.CreditAccountClosed?.[0] || '0'),
+        defaultAccounts: parseInt(caisSummary?.Credit_Account?.[0]?.CreditAccountDefault?.[0] || '0'),
+        totalBalance: {
+            secured: parseInt(caisSummary?.Total_Outstanding_Balance?.[0]?.Outstanding_Balance_Secured?.[0] || '0'),
+            unsecured: parseInt(caisSummary?.Total_Outstanding_Balance?.[0]?.Outstanding_Balance_UnSecured?.[0] || '0'),
+            total: parseInt(caisSummary?.Total_Outstanding_Balance?.[0]?.Outstanding_Balance_All?.[0] || '0')
+        }
     };
 };
 
-const extractCreditAccounts = (report) => {
-    const accounts = report.CAIS_Account?.CAIS_Account_DETAILS || [];
-    const accountList = Array.isArray(accounts) ? accounts : [accounts].filter(Boolean);
-    
-    return accountList.map(account => ({
-        bank: extractValue(account, 'Subscriber_Name', '').trim(),
-        accountNumber: extractValue(account, 'Account_Number'),
-        accountType: extractValue(account, 'Account_Type'),
-        portfolioType: extractValue(account, 'Portfolio_Type'),
-        openDate: extractValue(account, 'Open_Date'),
-        amountOverdue: parseNumber(extractValue(account, 'Amount_Past_Due')),
-        currentBalance: parseNumber(extractValue(account, 'Current_Balance')),
-        creditLimit: parseNumber(extractValue(account, 'Credit_Limit_Amount')),
-        status: extractValue(account, 'Account_Status'),
-        paymentHistory: extractValue(account, 'Payment_History_Profile'),
-        accountHolder: {
-            // Note: Names are reversed in the XML structure
-            name: `${extractValue(account, 'CAIS_Holder_Details.Surname_Non_Normalized')} ${extractValue(account, 'CAIS_Holder_Details.First_Name_Non_Normalized')}`.trim(),
-            pan: extractValue(account, 'CAIS_Holder_Details.Income_TAX_PAN'),
-            dob: extractValue(account, 'CAIS_Holder_Details.Date_of_birth')
-        }
+const extractCreditAccounts = (result) => {
+    const accounts = result.INProfileResponse?.CAIS_Account?.[0]?.CAIS_Account_DETAILS || [];
+    return accounts.map(account => ({
+        accountNumber: account.Account_Number?.[0] || 'N/A',
+        bank: account.Subscriber_Name?.[0]?.trim() || 'N/A',
+        accountType: account.Account_Type?.[0] || 'N/A',
+        openDate: formatDate(account.Open_Date?.[0]),
+        status: account.Account_Status?.[0] || 'N/A',
+        creditLimit: parseInt(account.Credit_Limit_Amount?.[0] || '0'),
+        currentBalance: parseInt(account.Current_Balance?.[0] || '0'),
+        amountOverdue: parseInt(account.Amount_Past_Due?.[0] || '0'),
+        paymentHistory: account.Payment_History_Profile?.[0] || 'N/A',
+        paymentHistoryDetails: extractPaymentHistory(account.CAIS_Account_History)
     }));
 };
 
-const extractAddresses = (report) => {
-    const accounts = report.CAIS_Account?.CAIS_Account_DETAILS || [];
-    const accountList = Array.isArray(accounts) ? accounts : [accounts].filter(Boolean);
-    
-    const addresses = new Set();
-    accountList.forEach(account => {
-        const addressDetails = account.CAIS_Holder_Address_Details || {};
-        const address = [
-            extractValue(addressDetails, 'First_Line_Of_Address_non_normalized'),
-            extractValue(addressDetails, 'Second_Line_Of_Address_non_normalized'),
-            extractValue(addressDetails, 'Third_Line_Of_Address_non_normalized'),
-            extractValue(addressDetails, 'City_non_normalized'),
-            extractValue(addressDetails, 'State_non_normalized'),
-            extractValue(addressDetails, 'ZIP_Postal_Code_non_normalized')
-        ].filter(Boolean).join(', ');
-        if (address) addresses.add(address);
+const extractPaymentHistory = (history) => {
+    if (!history) return [];
+    return history.map(entry => ({
+        year: entry.Year?.[0],
+        month: entry.Month?.[0],
+        daysOverdue: parseInt(entry.Days_Past_Due?.[0] || '0')
+    })).sort((a, b) => {
+        // Sort by year and month in descending order
+        if (a.year !== b.year) return parseInt(b.year) - parseInt(a.year);
+        return parseInt(b.month) - parseInt(a.month);
     });
-    
-    return Array.from(addresses);
 };
 
-const validateParsedData = (data) => {
-    const requiredFields = {
-        basicDetails: ['name', 'mobilePhone', 'pan', 'creditScore'],
-        reportSummary: ['totalAccounts', 'activeAccounts', 'closedAccounts', 'currentBalanceAmount'],
-        creditAccounts: ['accounts']
-    };
-
-    for (const [section, fields] of Object.entries(requiredFields)) {
-        if (!data[section]) {
-            throw new Error(`Missing required section: ${section}`);
-        }
-        
-        for (const field of fields) {
-            if (data[section][field] === undefined) {
-                throw new Error(`Missing required field: ${section}.${field}`);
-            }
-        }
-    }
+const formatDate = (dateStr) => {
+    if (!dateStr || dateStr.length !== 8) return 'N/A';
+    const year = dateStr.substring(0, 4);
+    const month = dateStr.substring(4, 6);
+    const day = dateStr.substring(6, 8);
+    return `${year}-${month}-${day}`;
 };
 
-exports.parseXMLData = async (xmlResult) => {
+const parseXMLReport = async (xmlContent) => {
     try {
-        const report = xmlResult.INProfileResponse || xmlResult;
-        
-        if (!report) {
-            throw new Error('Invalid XML structure: No credit report data found');
-        }
+        const parser = new xml2js.Parser();
+        const result = await parser.parseStringPromise(xmlContent);
 
-        const parsedData = {
-            basicDetails: extractBasicDetails(report),
-            reportSummary: extractReportSummary(report),
-            creditAccounts: {
-                accounts: extractCreditAccounts(report)
-            },
-            addresses: extractAddresses(report)
+        return {
+            basicDetails: extractBasicDetails(result),
+            accountSummary: extractAccountSummary(result),
+            creditAccounts: extractCreditAccounts(result)
         };
-
-        validateParsedData(parsedData);
-        return parsedData;
     } catch (error) {
-        console.error('Error parsing XML data:', error);
-        throw new Error(`Failed to parse XML data: ${error.message}`);
+        console.error('Error parsing XML:', error);
+        throw new Error('Failed to parse credit report XML');
     }
+};
+
+module.exports = {
+    parseXMLReport
 };

@@ -1,17 +1,15 @@
 const express = require('express');
-const router = express.Router();
 const multer = require('multer');
 const { processXMLReport, getReport, getAllReports } = require('../controllers/reportController');
 
-// Configure multer for XML file uploads
+const router = express.Router();
+
+// Configure multer for memory storage
 const storage = multer.memoryStorage();
 const upload = multer({
     storage: storage,
     fileFilter: (req, file, cb) => {
-        // Check file type
-        if (file.mimetype === 'application/xml' || 
-            file.mimetype === 'text/xml' || 
-            file.originalname.toLowerCase().endsWith('.xml')) {
+        if (file.mimetype === 'application/xml' || file.originalname.endsWith('.xml')) {
             cb(null, true);
         } else {
             cb(new Error('Invalid file type. Only XML files are allowed.'));
@@ -22,29 +20,8 @@ const upload = multer({
     }
 });
 
-// Custom error handling middleware for multer
-const uploadMiddleware = (req, res, next) => {
-    upload.single('file')(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-            // A Multer error occurred during upload
-            console.error('Multer error:', err);
-            return res.status(400).json({
-                error: `File upload error: ${err.message}`
-            });
-        } else if (err) {
-            // An unknown error occurred
-            console.error('Upload error:', err);
-            return res.status(400).json({
-                error: err.message
-            });
-        }
-        // Upload successful, proceed to next middleware
-        next();
-    });
-};
-
 // Routes
-router.post('/upload', uploadMiddleware, processXMLReport);
+router.post('/upload', upload.single('xmlFile'), processXMLReport);
 router.get('/:id', getReport);
 router.get('/', getAllReports);
 
