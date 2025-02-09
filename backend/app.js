@@ -7,10 +7,9 @@ const { errorHandler } = require('./middleware/errorHandler');
 const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 const corsOptions = {
-    origin: ['http://localhost:3000', 'http://localhost:5173'], 
+    origin: ['http://localhost:3000', 'http://localhost:5173', 'https://parser-production-902f.up.railway.app'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -26,23 +25,39 @@ app.use(express.urlencoded({ extended: true }));
 
 app.options('*', cors(corsOptions));
 
+console.log('Connecting to MongoDB:', process.env.MONGODB_URI || 'mongodb://localhost:27017/creditsea');
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/creditsea', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+.then(() => {
+    console.log('Successfully connected to MongoDB');
+    mongoose.connection.db.listCollections().toArray((err, collections) => {
+        if (err) {
+            console.error('Error listing collections:', err);
+        } else {
+            console.log('Available collections:', collections.map(c => c.name));
+        }
+    });
+})
+.catch(err => {
+    console.error('MongoDB connection error:', err);
+    console.error('Connection string:', process.env.MONGODB_URI || 'mongodb://localhost:27017/creditsea');
+});
 
 app.use('/api/reports', reportRoutes);
 
-app.use(errorHandler);
-
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
+    res.json({ 
+        status: 'ok',
+        mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    });
 });
 
 app.use((req, res) => {
     res.status(404).json({ error: 'Not Found' });
 });
+
+app.use(errorHandler);
 
 module.exports = app;
