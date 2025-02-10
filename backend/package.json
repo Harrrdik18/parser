@@ -2,10 +2,10 @@
   "name": "creditsea-backend",
   "version": "1.0.0",
   "description": "Backend for CreditSea XML credit report processor",
-  "main": "src/app.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "jest"
   },
   "dependencies": {
